@@ -146,9 +146,9 @@
       const res = await sendJson('/api/bookings', 'POST', { userId: userId, slotId: slotId });
       if (res.ok) {
         const b = await res.json();
-        setMsg('slots-message', 'Booking ' + b.id + ' ' + b.status, true);
         await loadSlots();
         await loadBookings();
+        setMsg('slots-message', 'Booking ' + b.id + ' ' + b.status, true);
       } else {
         setMsg('slots-message', await readError(res), false);
       }
