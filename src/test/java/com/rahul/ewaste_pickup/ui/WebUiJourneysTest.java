@@ -44,14 +44,22 @@ class WebUiJourneysTest {
         } catch (Exception e) {
             up = false;
         }
-        Assumptions.assumeTrue(up, "App not reachable at " + BASE_URL + " - skipping UI tests");
+        if (Boolean.getBoolean("requireApp")) {
+            assertTrue(up, "App not reachable at " + BASE_URL);
+        } else {
+            Assumptions.assumeTrue(up, "App not reachable at " + BASE_URL + " - skipping UI tests");
+        }
     }
 
     @BeforeEach
     void setUp() {
         ChromeOptions options = new ChromeOptions();
+        String chromeBinary = System.getProperty("chromeBinary");
+        if (chromeBinary != null && !chromeBinary.isBlank()) {
+            options.setBinary(chromeBinary);
+        }
         if (Boolean.getBoolean("headless")) {
-            options.addArguments("--headless=new");
+            options.addArguments("--headless=new", "--no-sandbox", "--disable-dev-shm-usage");
         }
         options.addArguments("--window-size=1280,1000");
         driver = new ChromeDriver(options);
