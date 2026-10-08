@@ -1,0 +1,8 @@
+target/
+.git/
+.idea/
+*.iml
+docker.env
+Jenkinsfile
+docs/
+src/main/resources/application-local.properties
