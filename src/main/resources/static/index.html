@@ -99,7 +99,7 @@
         const user = await res.json();
         userId = user.id;
         el('current-user').textContent = 'Signed in as ' + user.name + ' (user id ' + user.id + ')';
-        setMsg('reg-message', 'Registration complete. User id: ' + user.id, true);
+        setMsg('reg-message', 'Registered successfully. User id: ' + user.id, true);
         loadBookings();
       } else {
         setMsg('reg-message', await readError(res), false);
