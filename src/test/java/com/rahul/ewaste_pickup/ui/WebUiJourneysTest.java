@@ -54,8 +54,12 @@ class WebUiJourneysTest {
     @BeforeEach
     void setUp() {
         ChromeOptions options = new ChromeOptions();
+        String chromeBinary = System.getProperty("chromeBinary");
+        if (chromeBinary != null && !chromeBinary.isBlank()) {
+            options.setBinary(chromeBinary);
+        }
         if (Boolean.getBoolean("headless")) {
-            options.addArguments("--headless=new");
+            options.addArguments("--headless=new", "--no-sandbox", "--disable-dev-shm-usage");
         }
         options.addArguments("--window-size=1280,1000");
         driver = new ChromeDriver(options);
