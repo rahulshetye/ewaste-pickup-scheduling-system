@@ -3,7 +3,7 @@ FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /build
 COPY pom.xml .
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 \
+RUN \
     mvn -B package -Dmaven.test.skip=true \
     && cp target/ewaste-pickup-*.jar /build/app.jar
 
