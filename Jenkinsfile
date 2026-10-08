@@ -8,7 +8,7 @@ pipeline {
 
     parameters {
         choice(name: 'DEPLOY_ENV', choices: ['dev', 'staging'],
-               description: 'Target environment (decides which port the app runs on)')
+               description: 'Target environment (dev = host port 8092, staging = 8093)')
     }
 
     triggers {
@@ -16,11 +16,14 @@ pipeline {
     }
 
     environment {
-        TARGET_ENV  = "${params.DEPLOY_ENV ?: 'dev'}"
-        SERVER_PORT = "${(params.DEPLOY_ENV ?: 'dev') == 'staging' ? '8083' : '8082'}"
-        DEPLOY_DIR  = "/var/jenkins_home/deploy/${params.DEPLOY_ENV ?: 'dev'}"
-        DB_URL      = 'jdbc:mysql://host.docker.internal:3306/ewaste_pickup'
-        TEST_PORT   = '8089'
+        TARGET_ENV     = "${params.DEPLOY_ENV ?: 'dev'}"
+        HOST_PORT      = "${(params.DEPLOY_ENV ?: 'dev') == 'staging' ? '8093' : '8092'}"
+        CONTAINER_NAME = "ewaste-${params.DEPLOY_ENV ?: 'dev'}"
+        DB_URL         = 'jdbc:mysql://host.docker.internal:3306/ewaste_pickup'
+        TEST_PORT      = '8089'
+        IMAGE_REPO     = 'localhost:5001/ewaste-pickup'
+        REGISTRY_HOST  = 'host.docker.internal:5001'
+        VERSION        = "1.0.${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -43,7 +46,7 @@ pipeline {
             }
         }
 
-        // Quality gate: if anything in this stage fails, Deploy and Verify never run.
+        // Quality gate: if anything in this stage fails, nothing after it runs.
         stage('Selenium UI Tests') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'ewaste-db',
@@ -87,21 +90,53 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Docker Build') {
+            steps {
+                script {
+                    env.GIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                }
+                sh '''
+                    docker build \
+                        --label org.opencontainers.image.revision=$GIT_SHORT \
+                        --label org.opencontainers.image.version=$VERSION \
+                        --label ci.build.number=$BUILD_NUMBER \
+                        -t $IMAGE_REPO:$VERSION \
+                        -t $IMAGE_REPO:$GIT_SHORT \
+                        -t $IMAGE_REPO:latest .
+                    docker images $IMAGE_REPO
+                '''
+            }
+        }
+
+        stage('Push to Registry') {
+            steps {
+                sh '''
+                    docker push $IMAGE_REPO:$VERSION
+                    docker push $IMAGE_REPO:$GIT_SHORT
+                    docker push $IMAGE_REPO:latest
+                    echo "--- registry catalog ---"
+                    curl -s http://$REGISTRY_HOST/v2/_catalog
+                    echo
+                    echo "--- registry tags ---"
+                    curl -s http://$REGISTRY_HOST/v2/ewaste-pickup/tags/list
+                    echo
+                '''
+            }
+        }
+
+        stage('Deploy Container') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'ewaste-db',
                                                   usernameVariable: 'DB_USERNAME',
                                                   passwordVariable: 'DB_PASSWORD')]) {
                     sh '''
-                        mkdir -p "$DEPLOY_DIR"
-                        if [ -f "$DEPLOY_DIR/app.pid" ]; then
-                            kill "$(cat "$DEPLOY_DIR/app.pid")" || true
-                            sleep 5
-                        fi
-                        cp target/ewaste-pickup-*.jar "$DEPLOY_DIR/app.jar"
-                        cd "$DEPLOY_DIR"
-                        JENKINS_NODE_COOKIE=dontKillMe nohup java -jar app.jar > app.log 2>&1 &
-                        echo $! > app.pid
+                        docker pull $IMAGE_REPO:$VERSION
+                        docker rm -f $CONTAINER_NAME || true
+                        docker run -d --name $CONTAINER_NAME --restart unless-stopped \
+                            -p $HOST_PORT:8080 \
+                            -e DB_URL -e DB_USERNAME -e DB_PASSWORD \
+                            $IMAGE_REPO:$VERSION
+                        docker ps --filter name=$CONTAINER_NAME
                     '''
                 }
             }
@@ -110,15 +145,17 @@ pipeline {
         stage('Verify') {
             steps {
                 sh '''
-                    for i in $(seq 1 30); do
-                        if curl -sf "http://localhost:$SERVER_PORT/api/slots" > /dev/null; then
-                            echo "App is up on port $SERVER_PORT ($TARGET_ENV)"
+                    for i in $(seq 1 40); do
+                        if curl -sf "http://host.docker.internal:$HOST_PORT/api/slots" > /dev/null; then
+                            echo "Container $CONTAINER_NAME is up on host port $HOST_PORT ($TARGET_ENV)"
+                            echo "Image: $(docker inspect $CONTAINER_NAME --format '{{.Config.Image}}')"
+                            echo "Commit label: $(docker inspect $CONTAINER_NAME --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
                             exit 0
                         fi
                         sleep 2
                     done
-                    echo "App did not start. Last log lines:"
-                    tail -50 "$DEPLOY_DIR/app.log"
+                    echo "Container did not become healthy. Last log lines:"
+                    docker logs --tail 50 $CONTAINER_NAME
                     exit 1
                 '''
             }
