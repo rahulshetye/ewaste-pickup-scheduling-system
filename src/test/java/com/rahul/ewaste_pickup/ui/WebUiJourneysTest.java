@@ -44,7 +44,11 @@ class WebUiJourneysTest {
         } catch (Exception e) {
             up = false;
         }
-        Assumptions.assumeTrue(up, "App not reachable at " + BASE_URL + " - skipping UI tests");
+        if (Boolean.getBoolean("requireApp")) {
+            assertTrue(up, "App not reachable at " + BASE_URL);
+        } else {
+            Assumptions.assumeTrue(up, "App not reachable at " + BASE_URL + " - skipping UI tests");
+        }
     }
 
     @BeforeEach
