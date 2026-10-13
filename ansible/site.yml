@@ -99,6 +99,7 @@
       ansible.builtin.copy:
         src: "{{ app_jar_src }}"
         dest: "{{ app_home }}/releases/{{ app_version }}/app.jar"
+        force: false
         owner: "{{ app_user }}"
         group: "{{ app_group }}"
         mode: "0644"
