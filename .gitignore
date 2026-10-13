@@ -35,3 +35,5 @@ build/
 .DS_Store
 application-local.properties
 docker.env
+ansible/.vault_pass
+ansible/.vault_pass
