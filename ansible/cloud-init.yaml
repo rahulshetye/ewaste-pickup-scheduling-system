@@ -1,0 +1,6 @@
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILnwni1B9rZX07/b+ogiz65c4wDm5V9fLPfMcl3DXD0q rahulshetye@rahuls-MacBook-Air.local

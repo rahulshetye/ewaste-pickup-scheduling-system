@@ -1,0 +1,11 @@
+app_user: ewaste
+app_group: ewaste
+app_home: /opt/ewaste
+app_conf_dir: /etc/ewaste
+app_log_dir: /var/log/ewaste
+app_port: 8080
+app_version: "1.0.0"
+app_jar_src: "../target/ewaste-pickup-0.0.1-SNAPSHOT.jar"
+db_name: ewaste_pickup
+db_user: ewaste_app
+db_password: "{{ vault_db_password }}"

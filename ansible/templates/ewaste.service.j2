@@ -1,0 +1,18 @@
+[Unit]
+Description=E-Waste Pickup Scheduling System
+After=network.target mysql.service
+Requires=mysql.service
+
+[Service]
+User={{ app_user }}
+Group={{ app_group }}
+EnvironmentFile={{ app_conf_dir }}/ewaste.env
+WorkingDirectory={{ app_home }}
+ExecStart=/usr/bin/java -jar {{ app_home }}/current/app.jar
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:{{ app_log_dir }}/app.log
+StandardError=append:{{ app_log_dir }}/app.log
+
+[Install]
+WantedBy=multi-user.target
