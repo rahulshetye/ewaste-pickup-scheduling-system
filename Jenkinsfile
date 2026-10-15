@@ -160,5 +160,22 @@ pipeline {
                 '''
             }
         }
+        stage('Provision VM (Ansible)') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'ewaste-vm-ssh', keyFileVariable: 'SSH_KEY'),
+                    file(credentialsId: 'ewaste-vault-pass', variable: 'VAULT_FILE')
+                ]) {
+                    sh '''
+                        cd ansible
+                        export ANSIBLE_CONFIG="$PWD/ansible.cfg"
+                        export ANSIBLE_PRIVATE_KEY_FILE="$SSH_KEY"
+                        export ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_FILE"
+                        export ANSIBLE_HOST_KEY_CHECKING=False
+                        ansible-playbook site.yml -e app_version=$VERSION
+                    '''
+                }
+            }
+        }
     }
 }
