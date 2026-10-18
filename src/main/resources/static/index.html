@@ -5,67 +5,154 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>E-Waste Pickup Scheduler</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; color: #1f2937; }
-    section { border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; margin: 16px 0; }
-    label { display: block; margin: 8px 0 2px; font-size: 14px; }
-    input { padding: 6px 8px; width: 260px; }
-    button { padding: 6px 14px; margin-top: 10px; cursor: pointer; }
-    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-    th, td { border-bottom: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
-    .msg { margin-top: 8px; font-size: 14px; min-height: 18px; }
-    .ok { color: #047857; }
-    .err { color: #b91c1c; }
+    :root {
+      --ink: #12302b; --muted: #55706a; --paper: #eef4f2; --card: #ffffff;
+      --line: #cfdcd8; --brand: #0f6b57; --brand-dark: #0a4d3e;
+      --note-bg: #fff3c4; --note-line: #e2b93b; --note-ink: #5b4608;
+      --ok: #0a6b4a; --err: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif; background: var(--paper); color: var(--ink); margin: 0; line-height: 1.5; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px 48px; }
+
+    header { background: var(--brand-dark); color: #fff; padding: 32px 0 28px; }
+    header h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -0.01em; }
+    header p.lead { margin: 0; max-width: 60ch; color: #cfe6df; }
+    #current-user { display: inline-block; margin-top: 16px; padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,.14); font-size: 14px; }
+
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 8px; padding: 0; list-style: none; counter-reset: step; }
+    .flow li { counter-increment: step; flex: 1 1 200px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+    .flow li::before { content: counter(step); display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 8px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 12px; font-weight: 700; }
+
+    /* each step = main card + note card side by side */
+    .step { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 18px; margin: 22px 0; align-items: start; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; border-left: 5px solid var(--brand); }
+    section h2 { margin: 0 0 12px; font-size: 20px; }
+
+    .note { background: var(--note-bg); border: 1px solid var(--note-line); border-radius: 4px 14px 14px 14px; padding: 12px 14px 14px; color: var(--note-ink); font-size: 14px; box-shadow: 3px 4px 0 rgba(226,185,59,.35); }
+    .note strong { display: block; margin-bottom: 4px; font-size: 14px; }
+    .note p { margin: 0 0 6px; }
+    .note p:last-child { margin-bottom: 0; }
+    .note code { background: rgba(0,0,0,.07); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+    .note.inline { margin-top: 14px; box-shadow: none; }
+
+    label { display: block; margin: 12px 0 4px; font-size: 14px; font-weight: 600; }
+    input { padding: 9px 11px; width: 100%; max-width: 360px; border: 1px solid #aebfba; border-radius: 8px; font: inherit; background: #fff; color: var(--ink); }
+    input:focus-visible, button:focus-visible { outline: 3px solid #5fb7a2; outline-offset: 1px; }
+    button { padding: 9px 18px; margin-top: 14px; cursor: pointer; border: 0; border-radius: 8px; background: var(--brand); color: #fff; font: inherit; font-weight: 600; }
+    button:hover { background: var(--brand-dark); }
+    button.secondary { background: #fff; color: var(--brand-dark); border: 1px solid var(--brand); }
+    button.secondary:hover { background: #e3f1ed; }
+    td button { margin: 0; padding: 5px 12px; font-size: 13px; }
+
+    .table-scroll { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 14px; }
+    th { text-align: left; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--line); padding: 8px; }
+    td { border-bottom: 1px solid #e3ebe8; padding: 8px; }
+
+    .msg { margin-top: 10px; font-size: 14px; min-height: 20px; font-weight: 500; }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+    .status { font-weight: 700; }
+
+    @media (max-width: 760px) { .step { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <h1>E-Waste Pickup Scheduler</h1>
-  <p id="current-user">Not registered yet</p>
+  <header>
+    <div class="wrap">
+      <h1>E-Waste Pickup Scheduler</h1>
+      <p class="lead">Book a time for old phones, chargers and appliances to be collected from your area.</p>
+      <p id="current-user">Not registered yet</p>
+    </div>
+  </header>
 
-  <section>
-    <h2>1. Register</h2>
-    <label for="reg-name">Name</label>
-    <input id="reg-name" placeholder="Your name">
-    <label for="reg-email">Email</label>
-    <input id="reg-email" placeholder="you@example.com">
-    <label for="reg-password">Password</label>
-    <input id="reg-password" type="password" placeholder="Password">
-    <div><button id="reg-submit">Register</button></div>
-    <div id="reg-message" class="msg"></div>
-  </section>
+  <div class="wrap">
+    <ol class="flow" aria-label="How the app works">
+      <li>Register</li>
+      <li>Admin adds slots</li>
+      <li>Book a slot</li>
+      <li>Manage bookings</li>
+    </ol>
 
-  <section>
-    <h2>2. Add a pickup slot (admin)</h2>
-    <label for="slot-date">Date</label>
-    <input id="slot-date" placeholder="YYYY-MM-DD">
-    <label for="slot-start">Start time</label>
-    <input id="slot-start" placeholder="HH:MM">
-    <label for="slot-end">End time</label>
-    <input id="slot-end" placeholder="HH:MM">
-    <label for="slot-area">Area</label>
-    <input id="slot-area" placeholder="Andheri">
-    <div><button id="slot-submit">Create slot</button></div>
-    <div id="slot-message" class="msg"></div>
-  </section>
+    <div class="step">
+      <section>
+        <h2>Register</h2>
+        <label for="reg-name">Name</label>
+        <input id="reg-name" placeholder="Your name">
+        <label for="reg-email">Email</label>
+        <input id="reg-email" placeholder="you@example.com">
+        <label for="reg-password">Password</label>
+        <input id="reg-password" type="password" placeholder="Password">
+        <div><button id="reg-submit">Register</button></div>
+        <div id="reg-message" class="msg"></div>
+      </section>
+      <aside class="note">
+        <strong>Note: why register?</strong>
+        <p>Your account gives you a <b>user id</b>. The app uses it to link every booking to you.</p>
+        <p>After you register, the badge at the top shows who you are signed in as.</p>
+      </aside>
+    </div>
 
-  <section>
-    <h2>3. Available slots</h2>
-    <button id="refresh-slots">Refresh slots</button>
-    <div id="slots-message" class="msg"></div>
-    <table id="slots-table">
-      <thead><tr><th>ID</th><th>Date</th><th>Time</th><th>Area</th><th></th></tr></thead>
-      <tbody id="slots-body"></tbody>
-    </table>
-  </section>
+    <div class="step">
+      <section>
+        <h2>Add a pickup slot (admin)</h2>
+        <label for="slot-date">Date</label>
+        <input id="slot-date" placeholder="YYYY-MM-DD">
+        <label for="slot-start">Start time</label>
+        <input id="slot-start" placeholder="HH:MM">
+        <label for="slot-end">End time</label>
+        <input id="slot-end" placeholder="HH:MM">
+        <label for="slot-area">Area</label>
+        <input id="slot-area" placeholder="Andheri">
+        <div><button id="slot-submit">Create slot</button></div>
+        <div id="slot-message" class="msg"></div>
+      </section>
+      <aside class="note">
+        <strong>Note: what is a slot?</strong>
+        <p>A slot is one time window when a collector visits one area, for example <code>2026-11-02</code>, <code>10:00</code> to <code>12:00</code>, Andheri.</p>
+        <p>This form is for admins. Residents only book the slots created here.</p>
+      </aside>
+    </div>
 
-  <section>
-    <h2>4. My bookings</h2>
-    <button id="refresh-bookings">Refresh bookings</button>
-    <div id="bookings-message" class="msg"></div>
-    <table id="bookings-table">
-      <thead><tr><th>Booking</th><th>Slot</th><th>Status</th><th></th></tr></thead>
-      <tbody id="bookings-body"></tbody>
-    </table>
-  </section>
+    <div class="step">
+      <section>
+        <h2>Available slots</h2>
+        <button id="refresh-slots" class="secondary">Refresh slots</button>
+        <div id="slots-message" class="msg"></div>
+        <div class="table-scroll">
+          <table id="slots-table">
+            <thead><tr><th>ID</th><th>Date</th><th>Time</th><th>Area</th><th></th></tr></thead>
+            <tbody id="slots-body"></tbody>
+          </table>
+        </div>
+      </section>
+      <aside class="note">
+        <strong>Note: booking a slot</strong>
+        <p>Press <b>Book</b> on any row to reserve it. You must register first.</p>
+        <p>Once a slot is booked it disappears from this list, so two people can’t take the same one. Cancelling brings it back.</p>
+      </aside>
+    </div>
+
+    <div class="step">
+      <section>
+        <h2>My bookings</h2>
+        <button id="refresh-bookings" class="secondary">Refresh bookings</button>
+        <div id="bookings-message" class="msg"></div>
+        <div class="table-scroll">
+          <table id="bookings-table">
+            <thead><tr><th>Booking</th><th>Slot</th><th>Status</th><th></th></tr></thead>
+            <tbody id="bookings-body"></tbody>
+          </table>
+        </div>
+      </section>
+      <aside class="note">
+        <strong>Note: reading the table</strong>
+        <p><b>Booking</b> is your reservation number. <b>Slot</b> is the id of the time window you picked.</p>
+        <p><b>Status</b> shows whether the booking is active or <code>CANCELLED</code>. Cancelled rows have no Cancel button.</p>
+      </aside>
+    </div>
+  </div>
 
   <script>
     let userId = null;
@@ -166,9 +253,11 @@
       list.forEach(b => {
         const tr = document.createElement('tr');
         tr.id = 'booking-' + b.id;
-        const cancelCell = b.status === 'CANCELLED' ? '' : '<button id="cancel-' + b.id + '">Cancel</button>';
+        const cancelCell = b.status === 'CANCELLED' ? '' : '<button id="cancel-' + b.id + '" class="secondary">Cancel</button>';
         tr.innerHTML = '<td>' + b.id + '</td><td>' + b.slotId + '</td><td class="status">' + b.status +
           '</td><td>' + cancelCell + '</td>';
+        const st = tr.querySelector('.status');
+        st.style.color = b.status === 'CANCELLED' ? 'var(--err)' : 'var(--ok)';
         const btn = tr.querySelector('button');
         if (btn) btn.addEventListener('click', () => cancelBooking(b.id));
         body.appendChild(tr);
